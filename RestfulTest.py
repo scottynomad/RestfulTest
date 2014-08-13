@@ -1,5 +1,5 @@
 from flask import Flask
-from flask.ext.restful import abort, fields, marshal_with, marshal_with_field, reqparse, Api, Resource
+from flask.ext.restful import abort, fields, marshal_with, reqparse, Api, Resource
 from flask_restful_swagger import swagger
 
 app = Flask(__name__)
@@ -15,15 +15,18 @@ class TodoModel(object):
 
     resource_fields = {
         'task': fields.String,
+        'id':   fields.String,
     }
 
-    def __init__(self, task):
+    def __init__(self, id, task):
+        self.id = id
         self.task = task
 
+
 TODOS = {
-    'todo1': TodoModel('build an API'),
-    'todo2': TodoModel('make it work'),
-    'todo3': TodoModel('profit!'),
+    'todo1': TodoModel('todo1', 'build an API'),
+    'todo2': TodoModel('todo2', 'make it work'),
+    'todo3': TodoModel('todo3', 'profit!'),
 }
 
 
@@ -74,6 +77,16 @@ class Todo(Resource):
 
     @swagger.operation(
         responseClass='TodoModel',
+        parameters=[
+            {
+                "description": "Text of TODO item.",
+                "name": "task",
+                "required": True,
+                "allowMultiple": False,
+                "dataType": TodoModel.__name__,
+                "paramType": "body"
+            }
+        ],
         responseMessages=[
             {
                 "code": 201,
@@ -85,9 +98,10 @@ class Todo(Resource):
             }
         ]
     )
+    @marshal_with(TodoModel.resource_fields)
     def put(self, todo_id):
         args = parser.parse_args()
-        task = TodoModel(args['task'])
+        task = TodoModel(todo_id, args['task'])
         TODOS[todo_id] = task
         return task, 201
 
@@ -96,9 +110,17 @@ class Todo(Resource):
 #   shows a list of all todos, and lets you POST to add new tasks
 class TodoList(Resource):
 
-    @marshal_with_field(fields.List(TodoModel.resource_fields))
+    @swagger.operation(
+        responseMessages=[
+            {
+                "code": 200,
+                "message": "OK."
+            }
+        ]
+    )
+    @marshal_with(TodoModel.resource_fields)
     def get(self):
-        return TODOS
+        return TODOS.values()
 
     def post(self):
         args = parser.parse_args()
