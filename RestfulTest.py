@@ -11,9 +11,13 @@ api = swagger.docs(Api(app),
                    api_spec_url='/_spec')
 
 
+update_parser = reqparse.RequestParser()
+update_parser.add_argument('task', type=str, required=False)
+update_parser.add_argument('comment', type=str, required=False, help="Optional comment.")
+
 parser = reqparse.RequestParser()
 parser.add_argument('task', type=str, required=True, help="Task text is required.")
-
+parser.add_argument('comment', type=str, required=False, help="Optional comment.")
 
 @swagger.model
 class TodoModel(object):
@@ -21,11 +25,13 @@ class TodoModel(object):
 
     resource_fields = {
         'task': fields.String,
+        'comment': fields.String,
     }
 
-    def __init__(self, id, task):
+    def __init__(self, id, task, comment):
         self.id = id
         self.task = task
+        self.comment = comment
 
 
 TODOS = { }
@@ -97,10 +103,10 @@ class Todo(Resource):
         parameters=[
             {
                 "description": "Text of TODO item.",
-                "name": "task",
+                "name": "body",
                 "required": True,
                 "allowMultiple": False,
-                "dataType": TodoModel.__name__,
+                "dataType": "TodoModel",
                 "paramType": "body"
             }
         ],
@@ -127,8 +133,10 @@ class Todo(Resource):
         It lets you put very long text in your api.
         """
         abort_if_todo_doesnt_exist(todo_id)
-        args = parser.parse_args()
-        TODOS[todo_id].task = args['task']
+        args = update_parser.parse_args()
+        for k, v in args.items():
+            if v:
+                setattr(TODOS[todo_id], k, v)
         return "", 204
 
 
@@ -156,11 +164,11 @@ class TodoList(Resource):
         responseClass='TodoModel',
         parameters=[
             {
-                "description": "Text of TODO item.",
-                "name": "task",
+                "description": "TODO Schema",
+                "name": "body",
                 "required": True,
                 "allowMultiple": False,
-                "dataType": TodoModel.__name__,
+                "dataType": "TodoModel",
                 "paramType": "body"
             }
         ],
@@ -178,7 +186,7 @@ class TodoList(Resource):
         """Create a new TODO item"""
         args = parser.parse_args()
         todo_id = 'todo%d' % (len(TODOS) + 1)
-        TODOS[todo_id] = TodoModel(todo_id, args['task'])
+        TODOS[todo_id] = TodoModel(todo_id, args['task'], args.get('comment'))
         return redirect_to_todo(todo_id)
 
 ##
